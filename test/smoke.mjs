@@ -48,9 +48,10 @@ plugin.apply(ctx)
 
 assert.equal(plugin.name, 'dsh-go-work')
 assert.deepEqual(plugin.inject, ['webServer', 'tools', 'commands'])
-assert.equal(routes.length, 3)
+assert.equal(routes.length, 4)
 assert.ok(routes.some((r) => r.path === '/dsh-go-work/api/config'))
 assert.ok(routes.some((r) => r.path === '/dsh-go-work/api/status'))
+assert.ok(routes.some((r) => r.path === '/dsh-go-work/api/diag'))
 
 // /web 指令註冊了，而且形狀對
 assert.equal(commands.length, 1)
