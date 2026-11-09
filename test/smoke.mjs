@@ -19,6 +19,7 @@ const { default: plugin, DEFAULTS, readConfig, writeConfig } = await import('../
 
 const routes = []
 const tools = []
+const commands = []
 const ctx = {
   webServer: {
     register(route) {
@@ -32,6 +33,12 @@ const ctx = {
       return () => {}
     },
   },
+  commands: {
+    register(command) {
+      commands.push(command)
+      return () => {}
+    },
+  },
   effect(fn) {
     return fn()
   },
@@ -40,10 +47,21 @@ const ctx = {
 plugin.apply(ctx)
 
 assert.equal(plugin.name, 'dsh-go-work')
-assert.deepEqual(plugin.inject, ['webServer', 'tools'])
+assert.deepEqual(plugin.inject, ['webServer', 'tools', 'commands'])
 assert.equal(routes.length, 3)
 assert.ok(routes.some((r) => r.path === '/dsh-go-work/api/config'))
 assert.ok(routes.some((r) => r.path === '/dsh-go-work/api/status'))
+
+// /web 指令註冊了，而且形狀對
+assert.equal(commands.length, 1)
+assert.equal(commands[0].name, 'web')
+assert.equal(typeof commands[0].handler, 'function')
+assert.ok(commands[0].description.length > 10)
+
+// 空參數要好好報錯，不要丟例外
+const emptyReply = await commands[0].handler({ rawInput: '   ' })
+assert.equal(emptyReply.kind, 'error')
+assert.match(emptyReply.text, /\/web/)
 
 // 五個工具都在，而且每個都有 name / description / parameters / execute
 assert.deepEqual(
