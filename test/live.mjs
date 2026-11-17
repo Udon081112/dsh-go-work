@@ -11,7 +11,6 @@ const cfg = {
   domainList: [],
   guardPassword: true,
   guardPayment: true,
-  guardPublish: true,
   maxClicks: 200,
   maxMinutes: 30,
   shotMode: 'onDemand',
