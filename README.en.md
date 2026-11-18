@@ -62,6 +62,8 @@ That comes from keeping the fixed cost of every step low enough to finish before
 | --- | --- | --- | --- | --- | --- |
 | Wikipedia (classic mode, 10 bots) | 9 | 9 | 9719 | 3 / 10 | Winner scored 12 013, so about 80.9% of it |
 
+This game used the [Wikipedia question bank](https://create.kahoot.it/solo?quizId=eb8e6cc3-f9e7-4df1-b8d2-dd81351ecef5&gameMode=normal): 9 questions, 10 bot opponents.
+
 Per-question scores: 928, 584, 928, 926, 912, 2064, 925, 1530, 922. The game took 255 seconds and 31 clicks; every question was read as text, and only the one image question downloaded the original picture.
 
 ### Capabilities exercised in this game
