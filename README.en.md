@@ -56,6 +56,16 @@ That comes from keeping the fixed cost of every step low enough to finish before
 
 > Scores depend on the model, the network and the difficulty of the question bank; the table is the author's measured average, not a guarantee.
 
+### Single-game record (2026-11-18)
+
+| Question bank | Questions | Correct | Score | Rank | Reference |
+| --- | --- | --- | --- | --- | --- |
+| Wikipedia (classic mode, 10 bots) | 9 | 9 | 9719 | 3 / 10 | Winner scored 12 013, so about 80.9% of it |
+
+Per-question scores: 928, 584, 928, 926, 912, 2064, 925, 1530, 922. The game took 255 seconds and 31 clicks; every question was read as text, and only the one image question downloaded the original picture.
+
+The drag-to-order question (584) and the picture question were the main time sinks. The same question bank also has a 10 299 record; almost all of that gap is answer latency — which is exactly why reducing round trips is this plugin's first principle.
+
 ## Installation
 
 Verified on Windows only. Requires a working Chrome and the DSH desktop app.
