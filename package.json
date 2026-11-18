@@ -1,10 +1,16 @@
 {
   "name": "dsh-go-work",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "給 DeepSeek Harness 的瀏覽器自動化插件：AI 自己開網頁、讀頁面、點東西；網域白名單、敏感操作攔截、動作預算都放在設定頁。",
   "license": "MIT",
   "type": "module",
   "main": "lib/index.js",
+  "scripts": {
+    "check": "node --check lib/index.js && node --check lib/tools.js && node --check lib/browser.js && node --check lib/client.js",
+    "test": "node test/smoke.mjs",
+    "test:live": "node test/live.mjs",
+    "verify": "npm run check && npm test"
+  },
   "exports": {
     ".": "./lib/index.js",
     "./client": "./lib/client.js",

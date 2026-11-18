@@ -1,105 +1,195 @@
 # dsh-go-work
 
-給 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的瀏覽器插件。
+[![version](https://img.shields.io/badge/version-0.4.0-blue)](package.json)
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-讓 AI 自己開網頁、讀頁面、點東西——該擋的地方真的擋，不是靠提示詞自律。
+供 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 使用的瀏覽器自動化外掛。讓 AI 開啟真實的 Chrome 視窗、讀取頁面、點擊元素，並把「不准做什麼」寫成程式判斷，而不是提示詞。
 
-> **狀態：0.3，能用。** 五個工具都通了，真 Chrome、真點擊。
-> 0.3 新增：`gw_goto { q }` 一次呼叫直接搜尋並回候選、同一頁讀三次就強制回報、時間到會自己關掉 Chrome。
-> 還沒做：借用你現有 Chrome 的登入態、定時自動截圖、設定頁那個齒輪圖標。
+DSH 內建的 `@playwright/mcp` 已經具備瀏覽器能力，本外掛補上三件事：
 
-## 為什麼要多一個
+1. **規則由程式執行。** 網域政策、密碼欄位、付款字樣、點擊次數與時間上限皆為程式判斷，不受模型狀態影響。
+2. **操作過程可見。** 外掛自行啟動 Chrome，使用者能看見它正在做什麼，不必經由除錯管線連線。
+3. **成本可控。** `gw_read` 回傳精簡的元素清單，不傾倒整頁 HTML；截圖只在需要時產生。
 
-DSH 已經有 `@playwright/mcp`，AI 本來就能開瀏覽器。但那個路線有三個洞：
+## 目錄
 
-1. **規矩是提示詞。** 「不要填密碼」寫在提示裡，模型會漂。這裡是程式的 `if`。
-2. **看不到它在做什麼。** 它開的 Chrome 走 debug pipe，外面連不上、也看不見。
-3. **成本不可控。** 一張截圖一千多 token，連拍二十張就是兩萬。
+- [功能](#功能)
+- [安裝](#安裝)
+- [使用方式](#使用方式)
+- [設定](#設定)
+- [工具](#工具)
+- [安全機制](#安全機制)
+- [限制](#限制)
+- [開發](#開發)
+- [授權](#授權)
 
-這個插件自己開 Chrome（你看得到視窗），把「給人看的」「給 AI 看的」「不准碰的」分開管。
+## 功能
 
-## 它怎麼被用
+- **六個工具，涵蓋一次完整操作**：開頁、讀頁、操作、截圖、取圖、收工。
+- **網域政策逐步複查**：不只進入網站時檢查，每一個動作落地後都重新比對，包含重新導向與新開分頁。
+- **憑證與付款保護**：`type=password` 欄位與付款、購買、下單字樣一律攔截；提交、送出、發佈、留言則放行。
+- **預算控制**：點擊次數與工作階段時間皆有上限，時間到會自動關閉 Chrome。
+- **精簡讀取**：回傳互動元素清單與 `ref`，模型以 `ref` 指定目標，不必猜測 CSS 選擇器。
+- **可讀取原圖**：頁面上的圖片與 CSS 背景圖會列在 `images` 欄位，`gw_image` 可下載原始檔，比截圖更清楚也更便宜。
+- **生命週期管理**：Chrome 被手動關閉時會自動重建；`gw_done` 或逾時都會確實釋放資源。
+
+## 安裝
+
+目前僅在 Windows 上驗證，需要可用的 Chrome 與 DSH 桌面版。
+
+1. 將外掛放在工作區的 `dsh-go-work` 目錄，再以目錄連結掛入 DSH profile：
+
+   ```powershell
+   cmd /c mklink /J "C:\Users\<使用者>\.dsh\profiles\desktop\node_modules\dsh-go-work" "<工作區>\dsh-go-work"
+   ```
+
+2. 在 `~/.dsh/profiles/desktop/cordis.patch.yml` 加入插入點：
+
+   ```yaml
+   - id: go-work
+     name: dsh-go-work
+     disabled: false
+   ```
+
+3. 重新啟動 DSH。宿主端只在啟動時載入模組，修改 `lib/` 之後必須重啟；設定頁屬於客戶端，重新整理頁面即可。
+
+4. 確認載入狀態：`~/.dsh/go-work.diag.json` 的 `phase` 應為 `ready`，`toolErrors` 應為空。也可以呼叫 `GET /dsh-go-work/api/ping`，回傳同一份診斷資訊。
+
+## 使用方式
+
+模型依任務自行選擇工具。一次典型的操作流程如下：
 
 ```
-你：幫我把 kahoot 那題做掉，代碼 123456
-AI：（gw_goto kahoot.it）→（gw_read）→ 看到題目和四個選項
-   （gw_act click e3）→ 下一題 → 全部做完 →
-   （gw_done）→ 跟你說錯了幾題
+使用者：幫我完成 Kahoot 這一題，代碼 123456
+模型：（gw_goto kahoot.it）→（gw_read）取得題目與選項
+     （gw_act click e3）→ 下一題
+     （gw_act steps:[…]）連續完成數步
+     （gw_done）回報結果
 ```
 
-要 AI 自己決定去哪裡時，它會先搜一次、把候選丟回來問你：
+當模型需要自行決定前往何處時，會先搜尋一次，再把候選交給使用者選擇：
 
 ```
-AI：（gw_goto q="井字棋 線上玩"）→ 八條標題+網址
-AI：這幾個你挑一個，偶直接開。
-你：第二個。
-AI：（gw_goto url=…）→（gw_read）→（gw_act click e5）…
+模型：（gw_goto q="井字棋 線上玩"）
+       → 回傳前 3 條結果，並顯示「開哪一個？」決策卡
+使用者：選擇第 2 條
+模型：（gw_goto url=…）→（gw_read）→（gw_act click e5）…
 ```
 
-中途需要帳號密碼、或要按到「付款」「發佈」時，工具會回一句「被擋了，原因是 X」，AI 就回頭問你。**不做彈窗。**
+同一個關鍵字選擇過一次之後會記錄在 `~/.dsh/go-work.memory.json`（保留 30 天、最多 200 筆），下次直接開啟，不再搜尋也不再詢問。
 
-## 探索預算
-
-AI 最常浪費時間的地方不是操作，是**猜**。同一個網址連續 `gw_read` 到第 3 次還沒動手，回應會多一個 `stuck: true`：
-
-> 這一頁你已經讀了 3 次還沒動手。要嘛立刻 gw_act 點一個，要嘛跟主人講你卡在哪——別再讀第四次。
-
-`gw_act` 一動到手就歸零。這條比什麼都有用：它不是限制 AI，是逼它承認卡住。
+遇到密碼欄位，或需要按下付款、購買、下單時，工具會回傳攔截原因，模型再回頭詢問使用者。外掛不會跳出對話框，也不會攔截提交、送出、發佈、留言——測驗網站每一題都需要提交，攔截後將無法作答。
 
 ## 設定
 
-裝好之後，DSH 設定裡會多一頁 **AI瀏覽器**。
+安裝完成後，DSH 設定頁會多出一個「AI 瀏覽器」區塊；設定存放在 `~/.dsh/go-work.config.json`。
 
-| 設定 | 說明 |
+| 設定 | 說明 | 預設值 |
+| --- | --- | --- |
+| 啟用瀏覽器工具 | 總開關。關閉後六個工具仍然存在，但每個都會回傳「已停用」 | 開啟 |
+| 使用哪個 Chrome | 僅支援乾淨設定檔：每次另開一個，不帶入本機登入狀態 | `clean` |
+| 網域政策 | 不限制、黑名單、白名單（含子網域） | `off` |
+| 網域清單 | 一行一個網域，例如 `bilibili.com`；白名單留空表示全部禁止 | 空 |
+| 不准填密碼 | 攔截 `type=password` 欄位，座標點擊與逐字按鍵同樣攔截 | 開啟 |
+| 不准碰付款 | 攔截付款、購買、下單類字樣；提交、發佈、留言一律放行 | 開啟 |
+| 最多點幾次 | 單一工作階段的點擊次數上限 | `200` |
+| 最長幾分鐘 | 時間到會自動關閉 Chrome，不必等下一次呼叫 | `30` |
+| 截圖 | 「需要時才截」或「關閉」；關閉後 `gw_shot` 直接拒絕，`gw_image` 不受影響 | `onDemand` |
+| 儲存位置 | 截圖與圖片的存放資料夾，預設 `~/.dsh/im/screenshot`；留空則不存檔，只回傳檔案大小 | `~/.dsh/im/screenshot` |
+
+設定頁只能投影 `id`、`order`、`label`，沒有放置圖示的位置，因此 `icon.svg` 僅供其他宿主使用。
+
+## 工具
+
+| 工具 | 用途 |
 | --- | --- |
-| 啟用 | 總開關 |
-| Chrome | 乾淨 profile（目前只支援這個）；「用現在這個」需要先把你正在跑的 Chrome 關掉，還沒做 |
-| 網域政策 | 不限制 / 黑名單 / 白名單（含子網域） |
-| 敏感操作 | 密碼欄位、付款字眼、發佈字眼，三個獨立開關 |
-| 預算 | 最多點幾次、最長幾分鐘（到時間會自己關掉 Chrome，不用等下一次呼叫） |
-| 截圖 | on-demand（工具要才給）；`interval` 定時截圖還沒做 |
-| 截圖路徑 | 預設 `~/.dsh/im/screenshot`，留空＝只回大小不落檔 |
-| 工具 | 五個工具各自開關 |
+| `gw_goto` | 以 `url` 開啟網址（會檢查網域政策）；以 `q` 搜尋，只回傳 3 條候選並顯示決策卡 |
+| `gw_read` | 讀取頁面：正文前 1500 字、前 12 個互動元素（附 `ref`）、頁面圖片清單 |
+| `gw_act` | 執行 `click`、`type`、`select`、`press`、`scroll`、`drag`，可用 `steps` 一次完成連續動作 |
+| `gw_shot` | 截圖並回傳檔案路徑（最後手段） |
+| `gw_image` | 下載頁面圖片的原始檔，之後以 `read_image` 檢視 |
+| `gw_done` | 關閉 Chrome，回報點擊次數與耗時 |
 
-設定存在 `~/.dsh/go-work.config.json`。
+`gw_read` 只回傳元素清單，不回傳整頁 HTML。模型以 `ref` 指定目標，節省 token 也避免點錯位置。預設值刻意設得較小（12 個元素、1500 字），需要更多時由呼叫端自行指定。
 
-## 給 AI 的工具
+### `gw_act` 的呼叫形式
 
-| 工具 | 做什麼 |
+| 形式 | 用途 |
 | --- | --- |
-| `gw_goto` | `url` 開網址（過網域政策）；`q` 直接搜尋並回前 8 條候選 |
-| `gw_read` | 讀頁面：正文前 1500 字 + 前 12 個可互動元素，每個帶 ref |
-| `gw_act` | 用 ref `click` / `type` / `press` / `scroll` |
-| `gw_shot` | 截圖，回檔案路徑 |
-| `gw_done` | 關 Chrome，回點擊次數與耗時 |
+| `{ action:'click', ref:'e3' }` | 一般點擊 |
+| `{ action:'click', x:420, y:300 }` | canvas 或 iframe 遊戲沒有 `ref`，改用截圖像素座標（viewport 1:1） |
+| `{ action:'type', ref:'e5', text:'123456' }` | 填寫文字 |
+| `{ action:'select', ref:'e7', text:'台灣' }` | `<select>` 下拉選單；找不到顯示文字時改用 `value` |
+| `{ action:'press', key:'Enter' }` | 在目前取得焦點的元素上按鍵 |
+| `{ action:'drag', x:100, y:200, x2:400, y2:200 }` | 排序題、拖放 |
+| `{ action:'scroll', dy:600 }` | 捲動頁面 |
+| `{ steps:[{action:'click',ref:'e1'},{action:'click',ref:'e2',waitMs:500}] }` | 連續動作，最多 30 步 |
 
-`gw_read` 是關鍵：它回元素清單，不回整頁 HTML。AI 用 `ref` 指定目標，不用猜 CSS selector——省 token，而且不會點錯。
+密碼欄位的保護不分入口：以 `ref` 填字、以座標點擊、以及先點進密碼欄再逐字按鍵，都會被攔截。
 
-預設值故意給得小（12 個元素、1500 字）。要看更多自己傳參數，但別讓「預設」變成 90 個元素的雜訊——那正是 AI 開始瞎挖的起點。
+純文字能解決的情況不需要截圖。Kahoot 的題目、選項與倒數都是 DOM 文字，`gw_read` 一次約 100 token；截圖需要 1000 token 以上，一題只有二十秒，通常來不及。
 
-純文字能解決就不要截圖。kahoot 這種題目、選項、倒數全是 DOM 文字，`gw_read` 一次約 100 token；截圖要 1000 以上，一題只有二十秒，截圖根本來不及。
+### 預算與提示
+
+- 同一頁連續 `gw_read` 三次仍未操作，回應會帶 `stuck: true`，要求模型立即操作或回報卡住的位置。
+- 一次導航之內最多搜尋 2 輪；關閉瀏覽器時預算一併歸零，不會殘留到下一個任務。
+
+## 安全機制
+
+網域政策有三種模式：`off`（不限制）、`blocklist`（黑名單）、`allowlist`（白名單，含子網域）。
+
+自 0.4.0 起，每個動作之後都會複查落地網址：點擊、填字、按鍵、拖曳、下拉、重新導向與新開分頁皆涵蓋在內；命中政策即退回原頁並回報原因。
+
+唯一的例外是搜尋引擎本身。白名單模式下列出的網域不會包含 Bing、DuckDuckGo、Google，若不放行搜尋引擎，`gw_goto { q }` 將完全無法使用；使用者最後選擇的那條網址仍會經過網域政策檢查。
+
+需要明確理解以下兩點：
+
+- 這是**流程層**的攔截，不是沙箱。它約束外掛自己發出的操作，不會限制被開啟的網站本身能做什麼。
+- 只攔截付款、購買、下單與密碼欄位；其他敏感操作（例如刪除帳號）不在攔截範圍內。
+
+## 限制
+
+- **iframe 內的 DOM 無法讀取。** `gw_read` 只讀主頁面；遇到 iframe（例如 Poki 這類遊戲）會在回應中標示 `frames`，並提示改用截圖加座標操作。
+- **沒有定時截圖。** 只有模型主動要求時才截圖。
+- **一次只有一個瀏覽器實例。** 多個任務同時需要瀏覽器時會共用同一個視窗，彼此干擾。
+- **新分頁只能被動接管。** 不會主動關閉多餘分頁，但最新開啟的那一頁會被視為目前頁面，且同樣通過網域政策。
+- **不支援既有 Chrome 的登入狀態。** 每次都是乾淨設定檔。
 
 ## 開發
 
-不用 TypeScript，不用打包工具。
+不使用 TypeScript，也沒有打包流程。
 
 ```
-package.json          dsh 欄位宣告 bundle 與 client
-cordis.patch.yml      插入點
-lib/index.js          宿主：設定讀寫 + HTTP 路由 + 工具註冊
-lib/tools.js          五個工具的定義（registry 認得的裸物件，零依賴）
-lib/browser.js        Chrome 生命週期、ref 表、政策檢查
+package.json          宣告 bundle 與 client 的 dsh 欄位
+cordis.patch.yml      外掛插入點
+LICENSE               MIT
+lib/index.js          宿主端：設定讀寫、HTTP 路由、工具註冊、診斷檔
+lib/tools.js          六個工具的定義（零依賴）
+lib/browser.js        Chrome 生命週期、ref 表、政策檢查、各種動作
 lib/client.js         客戶端：設定頁（手寫 React）
+test/smoke.mjs        不啟動瀏覽器的結構測試
+test/live.mjs         實際開啟 Chrome 的端到端測試
 ```
 
-Playwright 從外面的 `@playwright/mcp` 借，不裝依賴。找不到會回報它找過哪些路徑；也可以用 `DSH_GO_WORK_PLAYWRIGHT` 指過去。Chrome 同理，`DSH_GO_WORK_CHROME`。
+外掛本身沒有相依套件，Playwright 是借用既有的安裝：
+
+- 在插件目錄執行 `npm i playwright`，會裝進本地 `node_modules`（最乾淨的做法）；
+- 或使用 DSH 實驗性瀏覽器外掛所安裝的 `@playwright/mcp`（`~/.dsh/mcp/browser/node_modules/playwright`）；
+- 或使用 npm 全域安裝的版本；
+- 或直接以 `DSH_GO_WORK_PLAYWRIGHT` 指定 playwright 資料夾。
+
+`@playwright/mcp` 是微軟的官方套件（Apache-2.0），既不是本外掛的一部分，也不隨 DSH 核心發布；它之所以出現在本機，是因為 DSH 的實驗性外掛 `@deepseek-ai/dsh-experimental-browser-use-playwright-mcp` 使用它，並在首次執行時安裝到 `~/.dsh/mcp/browser`。找不到時，工具會列出搜尋過的路徑。Chrome 同理，可用 `DSH_GO_WORK_CHROME` 指定。
 
 ```bash
-node --check lib/index.js
-node test/smoke.mjs     # 10 組，不碰瀏覽器
-node test/live.mjs      # 真的開一次 Chrome（會彈視窗，約 4 秒）
+npm run check        # 四個檔案的語法檢查
+npm test             # smoke：12 組，不啟動瀏覽器
+npm run test:live    # 實際開啟一次 Chrome（會彈出視窗，約 5 秒）
 ```
+
+排查問題時先看 `~/.dsh/go-work.diag.json`：`phase` 停在哪一段，就是哪裡出錯。`GET /dsh-go-work/api/ping` 會回傳同一份診斷資訊。
+
+> `test/live.mjs` 需要啟動 Chrome 子行程（Playwright 使用 remote-debugging-pipe）。在受限沙箱中會得到 `spawn EPERM`，那是環境限制，不是外掛的問題；在正常的 DSH 宿主行程中執行即可。
 
 ## 授權
 
-MIT
+MIT，詳見 [LICENSE](LICENSE)。

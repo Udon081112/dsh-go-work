@@ -1,13 +1,12 @@
 /**
  * 煙霧測試：不碰瀏覽器、不碰真的 DSH，只用假的 ctx 確認
  *   1. 插件能載入、apply 不炸
- *   2. 兩條路由（config / ping，全 exact）＋五個工具都註冊了
- *   3. GET 回預設值
- *   4. POST 寫得進去、讀得回來
- *   5. 外站 Origin 會被擋（信任柵欄）
+ *   2. 兩條路由（config / ping，全 exact）＋六個工具都註冊了
+ *   3. GET 回預設值、POST 寫得進去讀得回來
+ *   4. 外站 Origin 會被擋（信任柵欄）
+ *   5. 工具開關、截圖開關、必填參數、搜尋預算重置這些「會壞掉」的地方
  *
- * 0.3 之後 /web 指令拿掉了，路由也從四條併成兩條、kind 一律 'exact'
- * （同 path 的 GET/POST 不能各註冊一條，會撞 prefixes 表）。
+ * 注意：這一支只驗「不開 Chrome 也驗得到」的部分；真的開瀏覽器看 test/live.mjs。
  */
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
@@ -56,17 +55,24 @@ assert.ok(
 assert.ok(routes.some((r) => r.path === '/dsh-go-work/api/config'))
 assert.ok(routes.some((r) => r.path === '/dsh-go-work/api/ping'))
 
-// 五個工具都在，而且每個都有 name / description / parameters / execute
-assert.deepEqual(
-  tools.map((t) => t.name).sort(),
-  ['gw_act', 'gw_done', 'gw_goto', 'gw_read', 'gw_shot'],
-)
+// 六個工具都在，而且每個都有 name / description / parameters / execute
+const NAMES = ['gw_act', 'gw_done', 'gw_goto', 'gw_image', 'gw_read', 'gw_shot']
+assert.deepEqual(tools.map((t) => t.name).sort(), NAMES)
 for (const tool of tools) {
   assert.equal(typeof tool.description, 'string')
   assert.ok(tool.description.length > 30, `${tool.name} 的 description 太短`)
   assert.equal(tool.parameters.type, 'object')
   assert.equal(typeof tool.execute, 'function')
   assert.equal(typeof tool.output.render, 'function')
+}
+
+// 必填參數要真的落在 parameters.required（以前寫在工具物件層，被 tool() 丟掉了）
+{
+  const image = tools.find((t) => t.name === 'gw_image')
+  assert.deepEqual(image.parameters.required, ['src'])
+  const act = tools.find((t) => t.name === 'gw_act')
+  assert.ok(act.parameters.properties.action.enum.includes('select'), 'gw_act 要支援 select')
+  assert.ok(act.parameters.properties.value, 'gw_act 要有 value 參數')
 }
 
 function makeRes() {
@@ -96,19 +102,21 @@ const pingRoute = routes.find((r) => r.path.endsWith('/ping'))
   assert.equal(res.statusCode, 200)
   assert.deepEqual(res.json.config, DEFAULTS)
   assert.ok(res.json.configPath.endsWith('go-work.config.json'))
+  assert.equal(res.json.defaults, undefined, 'GET 不該再回一份 defaults（前端沒在用）')
 }
 
-// 2) 預設截圖位置在 dsh/im/screenshot 底下
+// 2) 預設值本身要自洽：截圖目錄、工具清單、沒有死選項
 {
   assert.ok(DEFAULTS.shotDir.endsWith(path.join('im', 'screenshot')))
+  assert.deepEqual(DEFAULTS.tools, { goto: true, read: true, act: true, shot: true, image: true, done: true })
+  assert.equal('shotIntervalSec' in DEFAULTS, false, 'shotIntervalSec 根本沒實作，不該留在設定裡')
+  assert.equal(DEFAULTS.chromeProfile, 'clean')
 }
 
 // 3) 寫入（GET/POST 同一條路由，靠 req.method 分）
 {
   const res = makeRes()
-  const req = Readable.from([
-    Buffer.from(JSON.stringify({ maxClicks: 7, domainList: [' bilibili.com ', ''] })),
-  ])
+  const req = Readable.from([Buffer.from(JSON.stringify({ maxClicks: 7, domainList: [' bilibili.com ', ''] }))])
   req.headers = {}
   req.method = 'POST'
   await configRoute.handler(req, res)
@@ -156,10 +164,7 @@ const pingRoute = routes.find((r) => r.path.endsWith('/ping'))
   assert.equal(res.statusCode, 200)
   assert.equal(res.json.ok, true)
   assert.equal(res.json.phase, 'ready')
-  assert.deepEqual(
-    res.json.tools.gw.sort(),
-    ['gw_act', 'gw_done', 'gw_goto', 'gw_read', 'gw_shot'],
-  )
+  assert.deepEqual(res.json.tools.gw.sort(), NAMES)
   assert.ok(res.json.diag.diagPath.endsWith('go-work.diag.json'))
 }
 
@@ -169,7 +174,7 @@ const pingRoute = routes.find((r) => r.path.endsWith('/ping'))
   assert.equal(domainBlocked('https://bilibili.com/x', { domainPolicy: 'off', domainList: [] }), null)
   assert.match(
     domainBlocked('https://bilibili.com/x', { domainPolicy: 'blocklist', domainList: ['bilibili.com'] }),
-    /黑名單/,
+    /封鎖名單/,
   )
   assert.match(
     domainBlocked('https://evil.com/x', { domainPolicy: 'allowlist', domainList: ['bilibili.com'] }),
@@ -191,5 +196,34 @@ const pingRoute = routes.find((r) => r.path.endsWith('/ping'))
   assert.match(out.error, /關掉/)
 }
 
+// 11) 截圖關掉 = gw_shot 拒絕；gw_image 不受影響（各自有自己的開關）
+{
+  writeConfig({ enabled: true, shotMode: 'off' })
+  const shot = tools.find((t) => t.name === 'gw_shot')
+  const refused = await shot.execute({}, {})
+  assert.equal(refused.ok, false)
+  assert.match(refused.error, /截圖/)
+
+  writeConfig({ enabled: true, tools: { image: false } })
+  const image = tools.find((t) => t.name === 'gw_image')
+  const noImage = await image.execute({ src: 'https://example.com/a.png' }, {})
+  assert.equal(noImage.ok, false)
+  assert.match(noImage.error, /image/)
+}
+
+// 12) 搜尋預算要跟著 session 一起清：以前關掉再開還是被「已經搜過了」擋住
+{
+  const { takeSearchBudget, closeSession } = await import('../lib/browser.js')
+  assert.equal(takeSearchBudget().ok, true)
+  assert.equal(takeSearchBudget().ok, true)
+  assert.equal(takeSearchBudget().ok, false, '兩輪之後應該要擋')
+  await closeSession()
+  assert.equal(takeSearchBudget().ok, true, 'closeSession 之後要能重新搜')
+  /* 收尾：把預算用掉，避免影響後面（這一支沒有真的導航） */
+  takeSearchBudget()
+}
+
+writeConfig({ enabled: true, tools: { goto: true, read: true, act: true, shot: true, image: true, done: true }, shotMode: 'onDemand' })
+
 fs.rmSync(tmp, { recursive: true, force: true })
-console.log(`smoke: 10 組全過（${tools.length} 個工具、${routes.length} 條路由）`)
+console.log(`smoke: 12 組全過（${tools.length} 個工具、${routes.length} 條路由）`)
