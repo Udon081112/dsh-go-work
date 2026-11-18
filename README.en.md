@@ -88,12 +88,18 @@ Verified on Windows only. Requires a working Chrome and the DSH desktop app.
 ### Option 1: let DSH install it (recommended)
 
 ```powershell
+dsh plugin --profile <profile> add https://github.com/Udon081112/dsh-go-work/tarball/main
+```
+
+Replace `<profile>` with the profile to install into (`desktop`, `web`, …). The result looks like any other plugin: the profile's `dependencies` carry this URL, `dsh.profile.bundles` gains `dsh-go-work`, and the plugin's own `cordis.patch.yml` is applied automatically, so no settings file needs editing.
+
+To follow your own edits instead, install the local folder (a `link:`, so file changes take effect immediately — meant for development):
+
+```powershell
 dsh plugin --profile <profile> add "C:\path\to\dsh-go-work"
 ```
 
-Replace `<profile>` with the profile to install into (`desktop`, `web`, …) and the path with your clone. DSH links the folder with pnpm, appends `dsh-go-work` to that profile's `dsh.profile.bundles`, and applies the plugin's own `cordis.patch.yml`, so no settings file needs editing.
-
-> If the path contains non-ASCII characters (for example `OneDrive\文件`), the `link:` written into the profile may look garbled, though the link itself still works. If loading fails, use Option 2.
+> If a local path contains non-ASCII characters (for example `OneDrive\文件`), the `link:` written into the profile may look garbled, though the link itself still works. If loading fails, use Option 2.
 
 ### Option 2: mount it by hand
 

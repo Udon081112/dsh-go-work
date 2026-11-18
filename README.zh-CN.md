@@ -88,12 +88,18 @@ Kahoot 不是本插件的主要用途，只是一个方便、有计分、有倒�
 ### 方式一：交给 DSH 安装（推荐）
 
 ```powershell
+dsh plugin --profile <profile> add https://github.com/Udon081112/dsh-go-work/tarball/main
+```
+
+`<profile>` 换成要安装的 profile（例如 `desktop`、`web`）。装起来的样子与其他插件相同：profile 的 `dependencies` 会是这个 URL，`dsh.profile.bundles` 会多一项 `dsh-go-work`，插件自带的 `cordis.patch.yml` 也会自动套用，不需要手动改配置文件。
+
+要跟着自己的修改走，改装本地目录（会用 `link:`，改文件即生效，适合开发）：
+
+```powershell
 dsh plugin --profile <profile> add "C:\path\to\dsh-go-work"
 ```
 
-`<profile>` 换成要安装的 profile（例如 `desktop`、`web`），路径换成 clone 下来的目录。DSH 会用 pnpm 建立 link、把 `dsh-go-work` 写进该 profile 的 `dsh.profile.bundles`，并套用插件自带的 `cordis.patch.yml`，不需要再手动改配置文件。
-
-> 路径含中文（例如 `OneDrive\文件`）时，写进 profile 的 `link:` 可能显示成乱码，但链接本身仍可用；若加载失败，改用方式二。
+> 本地目录若含中文（例如 `OneDrive\文件`），写进 profile 的 `link:` 可能显示成乱码，但链接本身仍可用；若加载失败，改用方式二。
 
 ### 方式二：手动挂载
 

@@ -88,12 +88,18 @@ Kahoot 不是本外掛的主要用途，只是一個方便、有計分、有倒�
 ### 方式一：交給 DSH 安裝（建議）
 
 ```powershell
+dsh plugin --profile <profile> add https://github.com/Udon081112/dsh-go-work/tarball/main
+```
+
+`<profile>` 換成要安裝的 profile（例如 `desktop`、`web`）。裝起來的樣子與其他外掛相同：profile 的 `dependencies` 會是這個 URL，`dsh.profile.bundles` 會多一項 `dsh-go-work`，外掛自帶的 `cordis.patch.yml` 也會自動套用，不需要手動改設定檔。
+
+要跟著自己的修改走，改裝本地目錄（會用 `link:`，改檔案即生效，適合開發）：
+
+```powershell
 dsh plugin --profile <profile> add "C:\path\to\dsh-go-work"
 ```
 
-`<profile>` 換成要安裝的 profile（例如 `desktop`、`web`），路徑換成 clone 下來的目錄。DSH 會用 pnpm 建立 link、把 `dsh-go-work` 寫進該 profile 的 `dsh.profile.bundles`，並套用外掛自帶的 `cordis.patch.yml`，不需要再手動改設定檔。
-
-> 路徑含中文（例如 `OneDrive\文件`）時，寫進 profile 的 `link:` 可能顯示成亂碼，但連結本身仍可用；若載入失敗，改用方式二。
+> 本地目錄若含中文（例如 `OneDrive\文件`），寫進 profile 的 `link:` 可能顯示成亂碼，但連結本身仍可用；若載入失敗，改用方式二。
 
 ### 方式二：手動掛載
 
