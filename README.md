@@ -37,13 +37,21 @@ DSH 內建的 `@playwright/mcp` 已經具備瀏覽器能力，本外掛補上三
 
 目前僅在 Windows 上驗證，需要可用的 Chrome 與 DSH 桌面版。
 
-1. 將外掛放在工作區的 `dsh-go-work` 目錄，再以目錄連結掛入 DSH profile：
+1. 取得原始碼，放在工作區的 `dsh-go-work` 目錄：
+
+   ```powershell
+   git clone https://github.com/Udon081112/dsh-go-work.git
+   ```
+
+   也可以直接在 GitHub 頁面選擇 **Code → Download ZIP**，解壓後使用。
+
+2. 以目錄連結把外掛掛入 DSH profile（`<工作區>` 換成實際路徑）：
 
    ```powershell
    cmd /c mklink /J "C:\Users\<使用者>\.dsh\profiles\desktop\node_modules\dsh-go-work" "<工作區>\dsh-go-work"
    ```
 
-2. 在 `~/.dsh/profiles/desktop/cordis.patch.yml` 加入插入點：
+3. 在 `~/.dsh/profiles/desktop/cordis.patch.yml` 加入插入點：
 
    ```yaml
    - id: go-work
@@ -51,9 +59,9 @@ DSH 內建的 `@playwright/mcp` 已經具備瀏覽器能力，本外掛補上三
      disabled: false
    ```
 
-3. 重新啟動 DSH。宿主端只在啟動時載入模組，修改 `lib/` 之後必須重啟；設定頁屬於客戶端，重新整理頁面即可。
+4. 重新啟動 DSH。宿主端只在啟動時載入模組，修改 `lib/` 之後必須重啟；設定頁屬於客戶端，重新整理頁面即可。
 
-4. 確認載入狀態：`~/.dsh/go-work.diag.json` 的 `phase` 應為 `ready`，`toolErrors` 應為空。也可以呼叫 `GET /dsh-go-work/api/ping`，回傳同一份診斷資訊。
+5. 確認載入狀態：`~/.dsh/go-work.diag.json` 的 `phase` 應為 `ready`，`toolErrors` 應為空。也可以呼叫 `GET /dsh-go-work/api/ping`，回傳同一份診斷資訊。
 
 ## 使用方式
 
