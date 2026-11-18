@@ -3,7 +3,7 @@
   "version": "0.4.0",
   "description": "供 DeepSeek Harness 使用的瀏覽器自動化外掛：讓 AI 開啟 Chrome、讀取頁面、點擊元素；網域政策、敏感操作攔截與動作預算皆於設定頁調整。",
   "license": "MIT",
-  "author": "Udon081112",
+  "author": "Udon1314 <laichinghang@gmail.com>",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Udon081112/dsh-go-work.git"
