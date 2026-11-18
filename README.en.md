@@ -64,6 +64,17 @@ That comes from keeping the fixed cost of every step low enough to finish before
 
 Per-question scores: 928, 584, 928, 926, 912, 2064, 925, 1530, 922. The game took 255 seconds and 31 clicks; every question was read as text, and only the one image question downloaded the original picture.
 
+### Capabilities exercised in this game
+
+Every item below is a general capability, not something Kahoot-specific:
+
+1. **Text questions**: `gw_read` answered straight from the DOM — Everest as the world's highest peak, the Grand Canyon in Arizona, the Cliffs of Moher not in Scotland (no), Mount Fuji in Japan.
+2. **Drag ordering**: `gw_act` `drag` pulled TU to the first slot to spell TURKEY (+584). A drag only registers when it crosses two or more rows, and the visual order has to be confirmed with a screenshot.
+3. **Multi-select**: all six Mount Fuji statements selected (+2064). When options are not in `elements`, click by coordinates; one `steps` call made all six selections plus the submit, seven clicks in total.
+4. **Text input**: `type` filled in Japan and the answer was submitted (+912).
+5. **Image recognition**: Victoria Falls was identified from the original picture downloaded with `gw_image` (+1530) — clearer and cheaper than a screenshot.
+6. **State reading**: after answering, tell "next question" apart from a Wikipedia bonus page; an `aria-hidden` button means the page has already moved on and must not be forced.
+
 The drag-to-order question (584) and the picture question were the main time sinks. The same question bank also has a 10 299 record; almost all of that gap is answer latency — which is exactly why reducing round trips is this plugin's first principle.
 
 ## Installation
