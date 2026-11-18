@@ -38,6 +38,7 @@
     "browser",
     "automation",
     "playwright",
+    "kahoot",
     "cordis"
   ],
   "engines": {

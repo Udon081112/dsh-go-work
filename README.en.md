@@ -16,6 +16,7 @@ DSH already ships browser capability through `@playwright/mcp`. This plugin adds
 ## Contents
 
 - [Features](#features)
+- [Kahoot in practice](#kahoot-in-practice)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Settings](#settings)
@@ -34,6 +35,26 @@ DSH already ships browser capability through `@playwright/mcp`. This plugin adds
 - **Compact reads**: the response is a list of interactive elements with `ref` handles, so the model targets elements by `ref` instead of guessing CSS selectors.
 - **Original images**: images and CSS background images on the page are listed in the `images` field, and `gw_image` downloads the original file — clearer and cheaper than a screenshot.
 - **Lifecycle management**: a manually closed Chrome is rebuilt on demand; `gw_done` and timeouts actually release resources.
+
+## Kahoot in practice
+
+The main real-world use of this plugin is Kahoot: across long, repeated runs, the total score stays **above 80%**.
+
+That comes from keeping the fixed cost of every step low enough to finish before the countdown, not from the model being especially clever:
+
+- **Questions are read as text.** Questions, options and the countdown are all DOM text; one `gw_read` costs about 100 tokens, while a screenshot costs 1000+, and with twenty seconds per question there is usually no time.
+- **Several actions in one call.** `gw_act` with `steps` merges "click the option → submit" into a single call, and every round trip saved is a few seconds gained.
+- **Submit is never blocked.** Only payment and password are blocked; submit, send and publish go through — every quiz question needs a submit, and blocking it would make the game unplayable.
+- **Repeat patterns are not relearned.** Chosen keywords and flows are stored in `~/.dsh/go-work.memory.json`, so the next game opens directly.
+
+| Item | Measured result |
+| --- | --- |
+| Score | Steady above 80% (drops when the question bank is hard or the network is slow) |
+| Read cost per question | About 100 tokens |
+| Calls per question | 1 × `gw_read` + 1–2 × `gw_act` |
+| Main source of lost points | The page switched questions between read and click; similar option wording |
+
+> Scores depend on the model, the network and the difficulty of the question bank; the table is the author's measured average, not a guarantee.
 
 ## Installation
 
