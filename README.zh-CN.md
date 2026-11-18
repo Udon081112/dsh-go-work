@@ -38,7 +38,9 @@ DSH 内置的 `@playwright/mcp` 已经具备浏览器能力，本插件补上三
 
 ## Kahoot 实战
 
-本插件最主要的实战场景是 Kahoot：长时间反复实测下来，一局的总分稳定在**八成以上**。
+Kahoot 不是本插件的主要用途，只是一个方便、有计分、有倒计时的**实测场**：一局同时要求读题、点击、拖曳、输入与看图，刚好把大部分通用操作压进几十秒内。真正的主要用途是横跨不同网站的日常浏览活动——查资料、填表、订票、逛论坛、玩网页游戏，全部走同一组 `gw_*` 工具。
+
+长时间反复实测下来，Kahoot 一局的总分稳定在**八成以上**。
 
 能做到不是因为模型特别聪明，而是把每一步的固定成本压到能在倒计时结束前完成：
 
@@ -82,6 +84,18 @@ DSH 内置的 `@playwright/mcp` 已经具备浏览器能力，本插件补上三
 ## 安装
 
 目前仅在 Windows 上验证，需要可用的 Chrome 与 DSH 桌面版。
+
+### 方式一：交给 DSH 安装（推荐）
+
+```powershell
+dsh plugin --profile <profile> add "C:\path\to\dsh-go-work"
+```
+
+`<profile>` 换成要安装的 profile（例如 `desktop`、`web`），路径换成 clone 下来的目录。DSH 会用 pnpm 建立 link、把 `dsh-go-work` 写进该 profile 的 `dsh.profile.bundles`，并套用插件自带的 `cordis.patch.yml`，不需要再手动改配置文件。
+
+> 路径含中文（例如 `OneDrive\文件`）时，写进 profile 的 `link:` 可能显示成乱码，但链接本身仍可用；若加载失败，改用方式二。
+
+### 方式二：手动挂载
 
 1. 取得源码，放在工作区的 `dsh-go-work` 目录：
 

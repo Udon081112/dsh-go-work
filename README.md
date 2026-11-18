@@ -38,7 +38,9 @@ DSH 內建的 `@playwright/mcp` 已經具備瀏覽器能力，本外掛補上三
 
 ## Kahoot 實測
 
-本外掛最主要的實戰場景是 Kahoot：長時間反覆實測下來，一局的總分穩定在**八成以上**。
+Kahoot 不是本外掛的主要用途，只是一個方便、有計分、有倒數的**實測場**：一局同時要求讀題、點選、拖曳、輸入與看圖，剛好把大部分通用操作壓進幾十秒內。真正的主要用途是橫跨不同網站的日常瀏覽活動——查資料、填表、訂票、逛論壇、玩網頁遊戲，全部走同一組 `gw_*` 工具。
+
+長時間反覆實測下來，Kahoot 一局的總分穩定在**八成以上**。
 
 能做到不是因為模型特別聰明，而是把每一步的固定成本壓到能在倒數結束前完成：
 
@@ -82,6 +84,18 @@ DSH 內建的 `@playwright/mcp` 已經具備瀏覽器能力，本外掛補上三
 ## 安裝
 
 目前僅在 Windows 上驗證，需要可用的 Chrome 與 DSH 桌面版。
+
+### 方式一：交給 DSH 安裝（建議）
+
+```powershell
+dsh plugin --profile <profile> add "C:\path\to\dsh-go-work"
+```
+
+`<profile>` 換成要安裝的 profile（例如 `desktop`、`web`），路徑換成 clone 下來的目錄。DSH 會用 pnpm 建立 link、把 `dsh-go-work` 寫進該 profile 的 `dsh.profile.bundles`，並套用外掛自帶的 `cordis.patch.yml`，不需要再手動改設定檔。
+
+> 路徑含中文（例如 `OneDrive\文件`）時，寫進 profile 的 `link:` 可能顯示成亂碼，但連結本身仍可用；若載入失敗，改用方式二。
+
+### 方式二：手動掛載
 
 1. 取得原始碼，放在工作區的 `dsh-go-work` 目錄：
 

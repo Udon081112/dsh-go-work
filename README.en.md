@@ -38,7 +38,9 @@ DSH already ships browser capability through `@playwright/mcp`. This plugin adds
 
 ## Kahoot in practice
 
-The main real-world use of this plugin is Kahoot: across long, repeated runs, the total score stays **above 80%**.
+Kahoot is not this plugin's main purpose — it is a convenient **test bench** with scoring and a countdown, because a single game exercises reading, clicking, dragging, typing and image recognition within a few dozen seconds. The actual main use is everyday browsing across arbitrary websites: looking things up, filling forms, booking tickets, reading forums, playing web games, all through the same set of `gw_*` tools.
+
+Across long, repeated runs, the Kahoot total stays **above 80%**.
 
 That comes from keeping the fixed cost of every step low enough to finish before the countdown, not from the model being especially clever:
 
@@ -82,6 +84,18 @@ The drag-to-order question (584) and the picture question were the main time sin
 ## Installation
 
 Verified on Windows only. Requires a working Chrome and the DSH desktop app.
+
+### Option 1: let DSH install it (recommended)
+
+```powershell
+dsh plugin --profile <profile> add "C:\path\to\dsh-go-work"
+```
+
+Replace `<profile>` with the profile to install into (`desktop`, `web`, …) and the path with your clone. DSH links the folder with pnpm, appends `dsh-go-work` to that profile's `dsh.profile.bundles`, and applies the plugin's own `cordis.patch.yml`, so no settings file needs editing.
+
+> If the path contains non-ASCII characters (for example `OneDrive\文件`), the `link:` written into the profile may look garbled, though the link itself still works. If loading fails, use Option 2.
+
+### Option 2: mount it by hand
 
 1. Clone the source into the `dsh-go-work` folder of your workspace:
 
