@@ -3,6 +3,8 @@
 [![version](https://img.shields.io/badge/version-0.4.0-blue)](package.json)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
+**繁體中文** | [简体中文](README.zh-CN.md) | [English](README.en.md)
+
 供 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 使用的瀏覽器自動化外掛。讓 AI 開啟真實的 Chrome 視窗、讀取頁面、點擊元素，並把「不准做什麼」寫成程式判斷，而不是提示詞。
 
 DSH 內建的 `@playwright/mcp` 已經具備瀏覽器能力，本外掛補上三件事：
